@@ -42,6 +42,33 @@ export async function verifyEdge(levelId: number, from: string, to: string): Pro
   }
 }
 
+export async function validateTempLevel(levelData: any): Promise<{
+  success: boolean;
+  valid: boolean;
+  reason?: string;
+  errors?: string[];
+  level?: LevelData;
+  harmonicEdges?: number;
+  totalEdges?: number;
+}> {
+  try {
+    const res = await fetch(`${API_BASE}/levels/validate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(levelData)
+    });
+    return await res.json();
+  } catch {
+    return {
+      success: false,
+      valid: false,
+      errors: ['无法连接到服务器，请检查后端是否启动']
+    };
+  }
+}
+
 export async function healthCheck(): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE}/health`);

@@ -1,6 +1,6 @@
 import { Game } from './game';
 import type { LevelData } from './types';
-import { healthCheck } from './api';
+import { healthCheck, validateTempLevel } from './api';
 
 const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
 const game = new Game(canvas);
@@ -21,18 +21,32 @@ const btnReset = document.getElementById('btn-reset') as HTMLButtonElement;
 const btnHint = document.getElementById('btn-hint') as HTMLButtonElement;
 const btnNext = document.getElementById('btn-next') as HTMLButtonElement;
 
+const btnImport = document.getElementById('btn-import') as HTMLButtonElement;
+const importModal = document.getElementById('import-modal')!;
+const importTextarea = document.getElementById('import-textarea') as HTMLTextAreaElement;
+const importErrors = document.getElementById('import-errors')!;
+const importErrorsList = importErrors.querySelector('ul')!;
+const importStatus = document.getElementById('import-status')!;
+const btnImportCancel = document.getElementById('btn-import-cancel') as HTMLButtonElement;
+const btnImportValidate = document.getElementById('btn-import-validate') as HTMLButtonElement;
+
 const MAX_LEVELS = 3;
 
 game.setCallbacks({
   onLevelChange: (level: LevelData) => {
-    levelNumEl.textContent = String(level.id);
+    const isTemp = game.getIsTempLevel();
+    levelNumEl.innerHTML = isTemp
+      ? `${level.id} <span class="temp-badge">临时</span>`
+      : String(level.id);
     creatureNameEl.textContent = level.creatureName;
     totalCountEl.textContent = String(level.edges.length);
     connectedCountEl.textContent = '0';
     progressFillEl.style.width = '0%';
     completeModal.classList.remove('show');
 
-    hintTitleEl.textContent = `关卡 ${level.id}: ${level.name}`;
+    hintTitleEl.textContent = isTemp
+      ? `临时关卡: ${level.name}`
+      : `关卡 ${level.id}: ${level.name}`;
     hintTextEl.textContent = '寻找闪烁频率成倍数关系的恒星，从一颗星拖动到另一颗星连接它们';
   },
   onProgressChange: (current: number, total: number) => {
@@ -64,7 +78,9 @@ game.setCallbacks({
     modalDescEl.textContent = desc;
     completeModal.classList.add('show');
 
-    if (game.getCurrentLevel() >= MAX_LEVELS) {
+    if (game.getIsTempLevel()) {
+      btnNext.textContent = '返回第一关';
+    } else if (game.getCurrentLevel() >= MAX_LEVELS) {
       btnNext.textContent = '重新开始';
     } else {
       btnNext.textContent = '下一关';
@@ -88,13 +104,101 @@ btnHint.addEventListener('click', () => {
 });
 
 btnNext.addEventListener('click', async () => {
-  const nextLevel = game.getCurrentLevel() >= MAX_LEVELS
-    ? 1
-    : game.getCurrentLevel() + 1;
-
   completeModal.classList.remove('show');
   btnHint.textContent = '显示频率';
-  await game.loadLevel(nextLevel);
+
+  if (game.getIsTempLevel()) {
+    await game.loadLevel(1);
+  } else {
+    const nextLevel = game.getCurrentLevel() >= MAX_LEVELS
+      ? 1
+      : game.getCurrentLevel() + 1;
+    await game.loadLevel(nextLevel);
+  }
+});
+
+btnImport.addEventListener('click', () => {
+  importModal.classList.add('show');
+  importTextarea.value = '';
+  importErrors.classList.remove('show');
+  importStatus.textContent = '';
+  importTextarea.focus();
+});
+
+btnImportCancel.addEventListener('click', () => {
+  importModal.classList.remove('show');
+});
+
+function showImportErrors(errors: string[]) {
+  importErrorsList.innerHTML = '';
+  errors.forEach(err => {
+    const li = document.createElement('li');
+    li.textContent = err;
+    importErrorsList.appendChild(li);
+  });
+  importErrors.classList.add('show');
+}
+
+btnImportValidate.addEventListener('click', async () => {
+  const jsonText = importTextarea.value.trim();
+  if (!jsonText) {
+    showImportErrors(['请输入关卡JSON数据']);
+    return;
+  }
+
+  let levelData: any;
+  try {
+    levelData = JSON.parse(jsonText);
+  } catch (e) {
+    showImportErrors([`JSON解析失败: ${e instanceof Error ? e.message : String(e)}`]);
+    return;
+  }
+
+  importStatus.textContent = '正在校验关卡数据...';
+  importErrors.classList.remove('show');
+  btnImportValidate.disabled = true;
+
+  try {
+    const result = await validateTempLevel(levelData);
+
+    if (!result.success) {
+      showImportErrors(result.errors || ['校验请求失败']);
+      importStatus.textContent = '';
+      btnImportValidate.disabled = false;
+      return;
+    }
+
+    if (!result.valid) {
+      const errorTitle = result.reason === 'structure' ? '结构校验失败' : '星脉校验失败';
+      const errors = result.errors || [];
+      if (result.harmonicEdges !== undefined && result.totalEdges !== undefined) {
+        errors.unshift(`谐波边: ${result.harmonicEdges}/${result.totalEdges}`);
+      }
+      showImportErrors(errors);
+      importStatus.textContent = `❌ ${errorTitle}`;
+      btnImportValidate.disabled = false;
+      return;
+    }
+
+    importStatus.textContent = '✅ 校验通过，正在进入试玩...';
+
+    setTimeout(() => {
+      if (result.level) {
+        const loaded = game.loadLevelData(result.level);
+        if (loaded) {
+          importModal.classList.remove('show');
+        } else {
+          showImportErrors(['加载关卡失败']);
+          importStatus.textContent = '';
+        }
+      }
+      btnImportValidate.disabled = false;
+    }, 500);
+  } catch (e) {
+    showImportErrors([`校验出错: ${e instanceof Error ? e.message : String(e)}`]);
+    importStatus.textContent = '';
+    btnImportValidate.disabled = false;
+  }
 });
 
 async function init(): Promise<void> {

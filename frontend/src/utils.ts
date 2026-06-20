@@ -156,3 +156,21 @@ export function colorToRgb(color: string): { r: number; g: number; b: number } {
 export function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
+
+export function isSimpleFrequencyRatio(f1: number, f2: number, maxDenom: number = 10): boolean {
+  const maxF = Math.max(f1, f2);
+  const minF = Math.min(f1, f2);
+  if (minF < 0.0001) return false;
+
+  const ratio = maxF / minF;
+
+  for (let denom = 1; denom <= maxDenom; denom++) {
+    const numer = ratio * denom;
+    const rounded = Math.round(numer);
+    if (Math.abs(numer - rounded) < 0.02 && rounded <= maxDenom && rounded > 0) {
+      return true;
+    }
+  }
+
+  return false;
+}

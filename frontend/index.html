@@ -126,6 +126,128 @@
         transform: translateX(-50%);
         pointer-events: auto;
       }
+      #btn-import {
+        position: absolute;
+        top: 20px;
+        right: 220px;
+        pointer-events: auto;
+        padding: 8px 16px;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.3s;
+      }
+      #btn-import:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
+      }
+      #import-modal {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) scale(0);
+        background: rgba(10, 15, 40, 0.98);
+        border: 2px solid rgba(160, 196, 255, 0.5);
+        border-radius: 16px;
+        padding: 30px;
+        width: 90%;
+        max-width: 600px;
+        pointer-events: auto;
+        transition: transform 0.3s ease;
+        z-index: 100;
+      }
+      #import-modal.show {
+        transform: translate(-50%, -50%) scale(1);
+      }
+      #import-modal h2 {
+        font-size: 24px;
+        color: #ffd700;
+        margin-bottom: 16px;
+        text-align: center;
+      }
+      #import-modal .desc {
+        color: #a0c4ff;
+        font-size: 14px;
+        margin-bottom: 16px;
+        line-height: 1.6;
+      }
+      #import-textarea {
+        width: 100%;
+        height: 200px;
+        background: rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(100, 150, 255, 0.3);
+        border-radius: 8px;
+        color: #fff;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 12px;
+        padding: 12px;
+        resize: vertical;
+        box-sizing: border-box;
+      }
+      #import-textarea:focus {
+        outline: none;
+        border-color: rgba(100, 150, 255, 0.6);
+      }
+      #import-errors {
+        margin-top: 12px;
+        max-height: 120px;
+        overflow-y: auto;
+        color: #ff6b6b;
+        font-size: 12px;
+        font-family: 'Consolas', 'Monaco', monospace;
+        background: rgba(255, 0, 0, 0.05);
+        border-radius: 6px;
+        padding: 10px;
+        display: none;
+      }
+      #import-errors.show {
+        display: block;
+      }
+      #import-errors .error-title {
+        color: #ff6b6b;
+        font-weight: bold;
+        margin-bottom: 6px;
+      }
+      #import-errors ul {
+        margin: 0;
+        padding-left: 20px;
+      }
+      #import-errors li {
+        margin-bottom: 4px;
+      }
+      .import-buttons {
+        margin-top: 20px;
+        text-align: center;
+      }
+      .import-buttons .btn {
+        margin: 0 8px;
+      }
+      .btn-secondary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      }
+      .btn-primary {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      }
+      #import-status {
+        text-align: center;
+        margin-top: 10px;
+        color: #a0c4ff;
+        font-size: 13px;
+        min-height: 18px;
+      }
+      .temp-badge {
+        display: inline-block;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 10px;
+        margin-left: 6px;
+        vertical-align: middle;
+      }
     </style>
   </head>
   <body>
@@ -146,10 +268,37 @@
         <div class="title" id="hint-title">观察星空</div>
         <div id="hint-text">寻找闪烁频率成倍数关系的恒星，用鼠标拖动连接它们</div>
       </div>
+      <button id="btn-import">📋 导入关卡</button>
       <div id="buttons-container">
         <button class="btn" id="btn-undo">撤销连线</button>
         <button class="btn" id="btn-reset">重置本关</button>
         <button class="btn" id="btn-hint">显示频率</button>
+      </div>
+      <div id="import-modal">
+        <h2>📋 临时关卡导入</h2>
+        <div class="desc">
+          粘贴关卡JSON数据，系统将自动校验结构和星脉合法性，通过后可直接试玩，
+          不会写入正式关卡文件。
+        </div>
+        <textarea id="import-textarea" placeholder='{
+  &quot;id&quot;: 999,
+  &quot;name&quot;: &quot;关卡名称&quot;,
+  &quot;creatureName&quot;: &quot;神话生物名&quot;,
+  &quot;creatureDescription&quot;: &quot;描述...&quot;,
+  &quot;anchorPoints&quot;: [...],
+  &quot;edges&quot;: [...],
+  &quot;lightPollution&quot;: {...},
+  &quot;rotationSpeed&quot;: 0.0001
+}'></textarea>
+        <div id="import-errors">
+          <div class="error-title">❌ 校验错误</div>
+          <ul></ul>
+        </div>
+        <div id="import-status"></div>
+        <div class="import-buttons">
+          <button class="btn btn-secondary" id="btn-import-cancel">取消</button>
+          <button class="btn btn-primary" id="btn-import-validate">校验并试玩</button>
+        </div>
       </div>
       <div id="complete-modal">
         <h2 id="modal-title">✨ 星座完成 ✨</h2>

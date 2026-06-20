@@ -15,7 +15,8 @@ import {
   smoothPath,
   simplifyPath,
   distance,
-  clamp
+  clamp,
+  isSimpleFrequencyRatio
 } from './utils';
 
 const SNAP_DISTANCE = 35;
@@ -30,6 +31,7 @@ export class Game {
   private animationFrameId: number = 0;
   private listeners: Array<() => void> = [];
   private completionTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private isTempLevel: boolean = false;
 
   private onLevelChange?: (level: LevelData) => void;
   private onProgressChange?: (current: number, total: number) => void;
@@ -115,22 +117,33 @@ export class Game {
     };
   }
 
+  private getConnectableAnchorIds(): Set<string> {
+    if (!this.state.levelData) return new Set();
+
+    const ids = new Set<string>();
+    for (const edge of this.state.levelData.edges) {
+      ids.add(edge.from);
+      ids.add(edge.to);
+    }
+    return ids;
+  }
+
   private findNearestAnchor(pos: ScreenPoint): AnchorPoint | null {
     if (!this.state.levelData) return null;
 
+    const connectableIds = this.getConnectableAnchorIds();
     let nearest: AnchorPoint | null = null;
     let nearestDist = Infinity;
 
     for (const anchor of this.state.levelData.anchorPoints) {
+      if (!connectableIds.has(anchor.id)) continue;
+
       const anchorPos = this.renderer.getAnchorScreenPos(anchor, this.state.rotationOffset);
       const d = distance(pos, anchorPos);
 
       if (d < SNAP_DISTANCE && d < nearestDist) {
-        const isValidAnchor = anchor.id.startsWith('a') || anchor.id.startsWith('b') || anchor.id.startsWith('c');
-        if (isValidAnchor) {
-          nearest = anchor;
-          nearestDist = d;
-        }
+        nearest = anchor;
+        nearestDist = d;
       }
     }
 
@@ -211,7 +224,9 @@ export class Game {
         curvePoints = simplifyPath(curvePoints, 5);
         curvePoints = smoothPath(curvePoints, 0.5);
 
-        const result = await verifyEdge(this.state.currentLevel, startId, endId);
+        const result = this.isTempLevel
+          ? this.verifyEdgeLocal(startId, endId)
+          : await verifyEdge(this.state.currentLevel, startId, endId);
 
         const connection: Connection = {
           from: startId,
@@ -371,11 +386,68 @@ export class Game {
     this.state.drawState = this.createEmptyDrawState();
     this.state.snapTargetId = null;
     this.state.showFrequencies = false;
+    this.isTempLevel = false;
 
     this.onLevelChange?.(data);
     this.onProgressChange?.(0, data.edges.length);
 
     return true;
+  }
+
+  loadLevelData(levelData: LevelData): boolean {
+    if (this.completionTimeoutId) {
+      clearTimeout(this.completionTimeoutId);
+      this.completionTimeoutId = null;
+    }
+
+    if (!levelData || !levelData.anchorPoints || !levelData.edges) {
+      return false;
+    }
+
+    this.state.currentLevel = levelData.id;
+    this.state.levelData = levelData;
+    this.state.connections = [];
+    this.state.completedEdges = new Set();
+    this.state.isComplete = false;
+    this.state.rotationOffset = 0;
+    this.state.drawState = this.createEmptyDrawState();
+    this.state.snapTargetId = null;
+    this.state.showFrequencies = false;
+    this.isTempLevel = true;
+
+    this.onLevelChange?.(levelData);
+    this.onProgressChange?.(0, levelData.edges.length);
+
+    return true;
+  }
+
+  getIsTempLevel(): boolean {
+    return this.isTempLevel;
+  }
+
+  private verifyEdgeLocal(from: string, to: string): { valid: boolean; isHarmonic: boolean; isDefinedEdge: boolean } {
+    if (!this.state.levelData) {
+      return { valid: false, isHarmonic: false, isDefinedEdge: false };
+    }
+
+    const fromPoint = this.state.levelData.anchorPoints.find(p => p.id === from);
+    const toPoint = this.state.levelData.anchorPoints.find(p => p.id === to);
+
+    if (!fromPoint || !toPoint) {
+      return { valid: false, isHarmonic: false, isDefinedEdge: false };
+    }
+
+    const isDefinedEdge = this.state.levelData.edges.some(
+      e => (e.from === from && e.to === to) || (e.from === to && e.to === from)
+    );
+
+    const isHarmonic = isSimpleFrequencyRatio(fromPoint.frequency, toPoint.frequency);
+
+    return {
+      valid: isDefinedEdge && isHarmonic,
+      isHarmonic,
+      isDefinedEdge
+    };
   }
 
   getCurrentLevel(): number {
