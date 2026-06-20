@@ -535,13 +535,16 @@ export class Game {
         connectedIds.add(c.to);
       });
 
+      const connectableAnchorIds = this.getConnectableAnchorIds();
+
       this.renderer.drawAnchorPoints(
         this.state.levelData.anchorPoints,
         this.state.rotationOffset,
         this.state.time,
         this.state.showFrequencies,
         this.state.snapTargetId ?? this.state.drawState.startAnchorId,
-        connectedIds
+        connectedIds,
+        connectableAnchorIds
       );
 
       this.renderer.drawCompletionEffect(this.state.time, this.getProgress());

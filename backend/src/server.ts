@@ -164,122 +164,199 @@ app.get('/api/levels/:id/verify', (req, res) => {
   });
 });
 
+function isValidFiniteNumber(value: any): boolean {
+  return typeof value === 'number' && !isNaN(value) && isFinite(value);
+}
+
 function validateLevelStructure(level: any): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
-  if (!level || typeof level !== 'object') {
-    return { valid: false, errors: ['关卡数据必须是对象'] };
+  if (level === null || level === undefined) {
+    return { valid: false, errors: ['<root> 不能是 null 或 undefined'] };
+  }
+  if (Array.isArray(level)) {
+    return { valid: false, errors: ['<root> 不能是数组，必须是对象'] };
+  }
+  if (typeof level !== 'object') {
+    return { valid: false, errors: [`<root> 必须是对象，当前类型: ${typeof level}`] };
   }
 
-  if (typeof level.id !== 'number') {
-    errors.push('id 必须是数字');
+  if (!isValidFiniteNumber(level.id)) {
+    errors.push(`id 必须是有限数字，当前值: ${JSON.stringify(level.id)}`);
   }
-  if (typeof level.name !== 'string' || level.name.trim() === '') {
-    errors.push('name 必须是非空字符串');
+  if (typeof level.name !== 'string') {
+    errors.push(`name 必须是字符串，当前类型: ${typeof level.name}`);
+  } else if (level.name.trim() === '') {
+    errors.push('name 不能是空字符串');
   }
-  if (typeof level.creatureName !== 'string' || level.creatureName.trim() === '') {
-    errors.push('creatureName 必须是非空字符串');
+  if (typeof level.creatureName !== 'string') {
+    errors.push(`creatureName 必须是字符串，当前类型: ${typeof level.creatureName}`);
+  } else if (level.creatureName.trim() === '') {
+    errors.push('creatureName 不能是空字符串');
   }
   if (typeof level.creatureDescription !== 'string') {
-    errors.push('creatureDescription 必须是字符串');
+    errors.push(`creatureDescription 必须是字符串，当前类型: ${typeof level.creatureDescription}`);
   }
-  if (typeof level.rotationSpeed !== 'number') {
-    errors.push('rotationSpeed 必须是数字');
+  if (!isValidFiniteNumber(level.rotationSpeed)) {
+    errors.push(`rotationSpeed 必须是有限数字，当前值: ${JSON.stringify(level.rotationSpeed)}`);
   }
 
   if (!Array.isArray(level.anchorPoints)) {
-    errors.push('anchorPoints 必须是数组');
+    errors.push(`anchorPoints 必须是数组，当前类型: ${level.anchorPoints === null ? 'null' : typeof level.anchorPoints}`);
   } else if (level.anchorPoints.length === 0) {
-    errors.push('anchorPoints 不能为空');
+    errors.push('anchorPoints 不能为空数组');
   } else {
     const anchorIds = new Set<string>();
     level.anchorPoints.forEach((p: any, i: number) => {
-      if (typeof p.id !== 'string' || p.id.trim() === '') {
-        errors.push(`anchorPoints[${i}].id 必须是非空字符串`);
+      const prefix = `anchorPoints[${i}]`;
+      if (p === null || p === undefined) {
+        errors.push(`${prefix} 不能是 null 或 undefined`);
+        return;
+      }
+      if (typeof p !== 'object' || Array.isArray(p)) {
+        errors.push(`${prefix} 必须是对象`);
+        return;
+      }
+
+      if (typeof p.id !== 'string') {
+        errors.push(`${prefix}.id 必须是字符串，当前类型: ${typeof p.id}`);
+      } else if (p.id.trim() === '') {
+        errors.push(`${prefix}.id 不能是空字符串`);
       } else {
         if (anchorIds.has(p.id)) {
-          errors.push(`anchorPoints[${i}].id 重复: ${p.id}`);
+          errors.push(`${prefix}.id 重复: ${p.id}`);
         }
         anchorIds.add(p.id);
       }
-      if (typeof p.x !== 'number' || p.x < 0 || p.x > 1) {
-        errors.push(`anchorPoints[${i}].x 必须是 0-1 之间的数字`);
+
+      if (!isValidFiniteNumber(p.x)) {
+        errors.push(`${prefix}.x 必须是 0-1 之间的有限数字，当前值: ${JSON.stringify(p.x)}`);
+      } else if (p.x < 0 || p.x > 1) {
+        errors.push(`${prefix}.x 必须在 0-1 范围内，当前值: ${p.x}`);
       }
-      if (typeof p.y !== 'number' || p.y < 0 || p.y > 1) {
-        errors.push(`anchorPoints[${i}].y 必须是 0-1 之间的数字`);
+
+      if (!isValidFiniteNumber(p.y)) {
+        errors.push(`${prefix}.y 必须是 0-1 之间的有限数字，当前值: ${JSON.stringify(p.y)}`);
+      } else if (p.y < 0 || p.y > 1) {
+        errors.push(`${prefix}.y 必须在 0-1 范围内，当前值: ${p.y}`);
       }
-      if (typeof p.frequency !== 'number' || p.frequency <= 0) {
-        errors.push(`anchorPoints[${i}].frequency 必须是正数`);
+
+      if (!isValidFiniteNumber(p.frequency)) {
+        errors.push(`${prefix}.frequency 必须是正的有限数字，当前值: ${JSON.stringify(p.frequency)}`);
+      } else if (p.frequency <= 0) {
+        errors.push(`${prefix}.frequency 必须大于 0，当前值: ${p.frequency}`);
       }
+
       if (p.name !== undefined && typeof p.name !== 'string') {
-        errors.push(`anchorPoints[${i}].name 必须是字符串`);
+        errors.push(`${prefix}.name 必须是字符串，当前类型: ${typeof p.name}`);
       }
-      if (p.baseBrightness !== undefined && typeof p.baseBrightness !== 'number') {
-        errors.push(`anchorPoints[${i}].baseBrightness 必须是数字`);
+      if (p.baseBrightness !== undefined && !isValidFiniteNumber(p.baseBrightness)) {
+        errors.push(`${prefix}.baseBrightness 必须是有限数字，当前值: ${JSON.stringify(p.baseBrightness)}`);
       }
-      if (p.size !== undefined && typeof p.size !== 'number') {
-        errors.push(`anchorPoints[${i}].size 必须是数字`);
+      if (p.size !== undefined && !isValidFiniteNumber(p.size)) {
+        errors.push(`${prefix}.size 必须是有限数字，当前值: ${JSON.stringify(p.size)}`);
       }
     });
   }
 
   if (!Array.isArray(level.edges)) {
-    errors.push('edges 必须是数组');
+    errors.push(`edges 必须是数组，当前类型: ${level.edges === null ? 'null' : typeof level.edges}`);
   } else if (level.edges.length === 0) {
-    errors.push('edges 不能为空');
+    errors.push('edges 不能为空数组');
   } else {
     const anchorIds = new Set<string>();
     if (Array.isArray(level.anchorPoints)) {
-      level.anchorPoints.forEach((p: any) => anchorIds.add(p.id));
+      level.anchorPoints.forEach((p: any) => {
+        if (p && typeof p.id === 'string') anchorIds.add(p.id);
+      });
     }
 
     const edgeKeys = new Set<string>();
     level.edges.forEach((e: any, i: number) => {
-      if (typeof e.from !== 'string' || e.from.trim() === '') {
-        errors.push(`edges[${i}].from 必须是非空字符串`);
+      const prefix = `edges[${i}]`;
+      if (e === null || e === undefined) {
+        errors.push(`${prefix} 不能是 null 或 undefined`);
+        return;
+      }
+      if (typeof e !== 'object' || Array.isArray(e)) {
+        errors.push(`${prefix} 必须是对象`);
+        return;
+      }
+
+      if (typeof e.from !== 'string') {
+        errors.push(`${prefix}.from 必须是字符串，当前类型: ${typeof e.from}`);
+      } else if (e.from.trim() === '') {
+        errors.push(`${prefix}.from 不能是空字符串`);
       } else if (!anchorIds.has(e.from)) {
-        errors.push(`edges[${i}].from 引用了不存在的锚点: ${e.from}`);
+        errors.push(`${prefix}.from 引用了不存在的锚点 ID: ${e.from}`);
       }
-      if (typeof e.to !== 'string' || e.to.trim() === '') {
-        errors.push(`edges[${i}].to 必须是非空字符串`);
+
+      if (typeof e.to !== 'string') {
+        errors.push(`${prefix}.to 必须是字符串，当前类型: ${typeof e.to}`);
+      } else if (e.to.trim() === '') {
+        errors.push(`${prefix}.to 不能是空字符串`);
       } else if (!anchorIds.has(e.to)) {
-        errors.push(`edges[${i}].to 引用了不存在的锚点: ${e.to}`);
+        errors.push(`${prefix}.to 引用了不存在的锚点 ID: ${e.to}`);
       }
-      if (e.from === e.to && e.from && e.to) {
-        errors.push(`edges[${i}] 不能自连接: ${e.from}`);
+
+      if (typeof e.from === 'string' && typeof e.to === 'string' && e.from === e.to && e.from !== '') {
+        errors.push(`${prefix} 不能自连接: ${e.from}`);
       }
-      if (!Array.isArray(e.frequencyRatio) || e.frequencyRatio.length !== 2) {
-        errors.push(`edges[${i}].frequencyRatio 必须是包含两个数字的数组`);
+
+      if (!Array.isArray(e.frequencyRatio)) {
+        errors.push(`${prefix}.frequencyRatio 必须是包含两个正整数的数组，当前类型: ${e.frequencyRatio === null ? 'null' : typeof e.frequencyRatio}`);
+      } else if (e.frequencyRatio.length !== 2) {
+        errors.push(`${prefix}.frequencyRatio 必须包含且仅包含两个元素，当前长度: ${e.frequencyRatio.length}`);
       } else {
-        if (typeof e.frequencyRatio[0] !== 'number' || e.frequencyRatio[0] <= 0) {
-          errors.push(`edges[${i}].frequencyRatio[0] 必须是正数`);
+        const r0 = e.frequencyRatio[0];
+        const r1 = e.frequencyRatio[1];
+
+        if (!isValidFiniteNumber(r0)) {
+          errors.push(`${prefix}.frequencyRatio[0] 必须是正的有限数字，当前值: ${JSON.stringify(r0)}`);
+        } else if (!Number.isInteger(r0)) {
+          errors.push(`${prefix}.frequencyRatio[0] 必须是整数，当前值: ${r0}`);
+        } else if (r0 <= 0) {
+          errors.push(`${prefix}.frequencyRatio[0] 必须大于 0，当前值: ${r0}`);
+        } else if (r0 > 10) {
+          errors.push(`${prefix}.frequencyRatio[0] 不能超过 10，当前值: ${r0}`);
         }
-        if (typeof e.frequencyRatio[1] !== 'number' || e.frequencyRatio[1] <= 0) {
-          errors.push(`edges[${i}].frequencyRatio[1] 必须是正数`);
+
+        if (!isValidFiniteNumber(r1)) {
+          errors.push(`${prefix}.frequencyRatio[1] 必须是正的有限数字，当前值: ${JSON.stringify(r1)}`);
+        } else if (!Number.isInteger(r1)) {
+          errors.push(`${prefix}.frequencyRatio[1] 必须是整数，当前值: ${r1}`);
+        } else if (r1 <= 0) {
+          errors.push(`${prefix}.frequencyRatio[1] 必须大于 0，当前值: ${r1}`);
+        } else if (r1 > 10) {
+          errors.push(`${prefix}.frequencyRatio[1] 不能超过 10，当前值: ${r1}`);
         }
       }
 
-      if (e.from && e.to && e.from !== e.to) {
+      if (typeof e.from === 'string' && typeof e.to === 'string' && e.from !== '' && e.to !== '' && e.from !== e.to) {
         const key = [e.from, e.to].sort().join('-');
         if (edgeKeys.has(key)) {
-          errors.push(`edges[${i}] 重复边: ${e.from}-${e.to}`);
+          errors.push(`${prefix} 重复的边定义: ${e.from}-${e.to}`);
         }
         edgeKeys.add(key);
       }
     });
   }
 
-  if (!level.lightPollution || typeof level.lightPollution !== 'object') {
-    errors.push('lightPollution 必须是对象');
+  if (level.lightPollution === null || level.lightPollution === undefined) {
+    errors.push('lightPollution 不能是 null 或 undefined');
+  } else if (Array.isArray(level.lightPollution)) {
+    errors.push('lightPollution 不能是数组，必须是对象');
+  } else if (typeof level.lightPollution !== 'object') {
+    errors.push(`lightPollution 必须是对象，当前类型: ${typeof level.lightPollution}`);
   } else {
-    if (typeof level.lightPollution.baseIntensity !== 'number') {
-      errors.push('lightPollution.baseIntensity 必须是数字');
+    if (!isValidFiniteNumber(level.lightPollution.baseIntensity)) {
+      errors.push(`lightPollution.baseIntensity 必须是有限数字，当前值: ${JSON.stringify(level.lightPollution.baseIntensity)}`);
     }
-    if (typeof level.lightPollution.variability !== 'number') {
-      errors.push('lightPollution.variability 必须是数字');
+    if (!isValidFiniteNumber(level.lightPollution.variability)) {
+      errors.push(`lightPollution.variability 必须是有限数字，当前值: ${JSON.stringify(level.lightPollution.variability)}`);
     }
-    if (typeof level.lightPollution.speed !== 'number') {
-      errors.push('lightPollution.speed 必须是数字');
+    if (!isValidFiniteNumber(level.lightPollution.speed)) {
+      errors.push(`lightPollution.speed 必须是有限数字，当前值: ${JSON.stringify(level.lightPollution.speed)}`);
     }
   }
 
@@ -289,32 +366,57 @@ function validateLevelStructure(level: any): { valid: boolean; errors: string[] 
 function validateStarPulses(level: any): { valid: boolean; errors: string[]; harmonicEdges: number; totalEdges: number } {
   const errors: string[] = [];
   let harmonicEdges = 0;
-  const totalEdges = level.edges?.length || 0;
+  const totalEdges = Array.isArray(level?.edges) ? level.edges.length : 0;
 
-  if (!Array.isArray(level.anchorPoints) || !Array.isArray(level.edges)) {
+  if (!Array.isArray(level?.anchorPoints) || !Array.isArray(level?.edges)) {
     return { valid: false, errors: ['缺少锚点或边数据'], harmonicEdges: 0, totalEdges: 0 };
   }
 
   const freqMap = new Map<string, number>();
   level.anchorPoints.forEach((p: any) => {
-    freqMap.set(p.id, p.frequency);
+    if (p && typeof p.id === 'string' && isValidFiniteNumber(p.frequency)) {
+      freqMap.set(p.id, p.frequency);
+    }
   });
 
   level.edges.forEach((e: any, i: number) => {
-    const f1 = freqMap.get(e.from);
-    const f2 = freqMap.get(e.to);
+    const prefix = `edges[${i}]`;
+    if (!e || typeof e !== 'object') return;
 
-    if (f1 !== undefined && f2 !== undefined) {
-      const isHarmonic = isSimpleFrequencyRatio(f1, f2);
-      if (isHarmonic) {
-        harmonicEdges++;
-      } else {
-        errors.push(`edges[${i}] (${e.from}-${e.to}) 频率不成谐波比例: ${f1}Hz / ${f2}Hz`);
-      }
+    const fromId = typeof e.from === 'string' ? e.from : '';
+    const toId = typeof e.to === 'string' ? e.to : '';
 
-      if (Array.isArray(e.frequencyRatio) && e.frequencyRatio.length === 2) {
-        const ratio1 = e.frequencyRatio[0];
-        const ratio2 = e.frequencyRatio[1];
+    const f1 = freqMap.get(fromId);
+    const f2 = freqMap.get(toId);
+
+    if (f1 === undefined || f2 === undefined) {
+      errors.push(`${prefix} 引用的锚点频率数据缺失: ${fromId || e.from} - ${toId || e.to}`);
+      return;
+    }
+
+    if (!isValidFiniteNumber(f1) || !isValidFiniteNumber(f2)) {
+      errors.push(`${prefix} 引用的锚点频率无效: ${fromId}=${f1}, ${toId}=${f2}`);
+      return;
+    }
+
+    const minF = Math.min(f1, f2);
+    if (minF <= 0) {
+      errors.push(`${prefix} 引用的锚点频率必须大于 0`);
+      return;
+    }
+
+    const isHarmonic = isSimpleFrequencyRatio(f1, f2);
+    if (isHarmonic) {
+      harmonicEdges++;
+    } else {
+      errors.push(`${prefix} (${fromId}-${toId}) 频率不成谐波比例: ${f1}Hz / ${f2}Hz`);
+    }
+
+    if (Array.isArray(e.frequencyRatio) && e.frequencyRatio.length === 2) {
+      const ratio1 = e.frequencyRatio[0];
+      const ratio2 = e.frequencyRatio[1];
+
+      if (isValidFiniteNumber(ratio1) && isValidFiniteNumber(ratio2) && ratio1 > 0 && ratio2 > 0) {
         const maxF = Math.max(f1, f2);
         const minF = Math.min(f1, f2);
         const expectedMax = Math.max(ratio1, ratio2);
@@ -322,8 +424,10 @@ function validateStarPulses(level: any): { valid: boolean; errors: string[]; har
         const actualRatio = maxF / minF;
         const expectedRatio = expectedMax / expectedMin;
 
-        if (Math.abs(actualRatio - expectedRatio) > 0.05) {
-          errors.push(`edges[${i}] (${e.from}-${e.to}) frequencyRatio 与实际频率不匹配: 期望 ${expectedMin}:${expectedMax}, 实际约 ${minF.toFixed(2)}:${maxF.toFixed(2)}`);
+        if (isValidFiniteNumber(actualRatio) && isValidFiniteNumber(expectedRatio) && expectedRatio > 0) {
+          if (Math.abs(actualRatio - expectedRatio) > 0.05) {
+            errors.push(`${prefix} (${fromId}-${toId}) frequencyRatio 与实际频率不匹配: 期望 ${expectedMin}:${expectedMax}, 实际约 ${minF.toFixed(2)}:${maxF.toFixed(2)}`);
+          }
         }
       }
     }

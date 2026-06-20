@@ -146,7 +146,8 @@ export class Renderer {
     time: number,
     showFreq: boolean,
     highlightedId: string | null,
-    connectedIds: Set<string>
+    connectedIds: Set<string>,
+    connectableAnchorIds: Set<string>
   ): void {
     for (const anchor of anchors) {
       const pos = this.getAnchorScreenPos(anchor, rotation);
@@ -154,8 +155,8 @@ export class Renderer {
       const brightness = (anchor.baseBrightness ?? 0.7) * twinkle;
       const size = (anchor.size ?? 3) * (highlightedId === anchor.id ? 1.8 : 1);
 
-      const isAnchor = anchor.id.startsWith('a') || anchor.id.startsWith('b') || anchor.id.startsWith('c');
-      const baseColor = isAnchor ? { r: 200, g: 220, b: 255 } : { r: 180, g: 180, b: 200 };
+      const isConnectable = connectableAnchorIds.has(anchor.id);
+      const baseColor = isConnectable ? { r: 200, g: 220, b: 255 } : { r: 180, g: 180, b: 200 };
       const isConnected = connectedIds.has(anchor.id);
       const connColor = isConnected ? { r: 255, g: 215, b: 100 } : baseColor;
 
@@ -189,7 +190,7 @@ export class Renderer {
         this.ctx.setLineDash([]);
       }
 
-      if (showFreq && isAnchor) {
+      if (showFreq && isConnectable) {
         this.ctx.font = '11px monospace';
         this.ctx.textAlign = 'center';
         this.ctx.fillStyle = `rgba(160, 196, 255, ${brightness * 0.9})`;
